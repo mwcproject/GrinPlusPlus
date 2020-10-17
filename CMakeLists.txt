@@ -136,7 +136,3 @@ option(GRINPP_TOOLS "Build tools" true)
 if(GRINPP_TOOLS)
     add_subdirectory(tools)
 endif()
-
-target_link_libraries(${TARGET_NAME} stdc++fs)
-
-
