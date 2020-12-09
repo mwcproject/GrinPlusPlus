@@ -26,57 +26,30 @@ TorProcess::Ptr TorProcess::Initialize(const fs::path& torDataPath, const uint16
 
 void TorProcess::Thread_Initialize(TorProcess* pProcess)
 {
-	while (!ShutdownManagerAPI::WasShutdownRequested())
+	try
 	{
-		try
-		{
-			std::unique_lock<std::mutex> lock(pProcess->m_mutex);
-			if (pProcess->m_pControl != nullptr) {
-				if (!pProcess->m_pControl->CheckHeartbeat()) {
-					LOG_WARNING("Tor heartbeat failed. Killing process and reinitializing.");
-					pProcess->m_pControl.reset();
-					continue;
-				}
+		LOG_INFO("Initializing Tor");
+		TorConfig config{ pProcess->m_socksPort, pProcess->m_controlPort, pProcess->m_torDataPath };
+		pProcess->m_pControl = TorControl::Create(config);
+		LOG_INFO_F("Tor Initialized: {}", pProcess->m_pControl != nullptr);
 
-				lock.unlock();
-				ThreadUtil::SleepFor(std::chrono::seconds(30), ShutdownManagerAPI::WasShutdownRequested());
-				continue;
-			}
-
-			if (!IsPortOpen(pProcess->m_socksPort) || !IsPortOpen(pProcess->m_controlPort)) {
-				LOG_WARNING("Tor port(s) in use. Trying to end tor process.");
-#ifdef _WIN32
-				system("taskkill /IM tor.exe /F");
-#else
-				system("killall tor");
-#endif
-				ThreadUtil::SleepFor(std::chrono::seconds(5), ShutdownManagerAPI::WasShutdownRequested());
-			}
-
-			LOG_INFO("Initializing Tor");
-			TorConfig config{ pProcess->m_socksPort, pProcess->m_controlPort, pProcess->m_torDataPath };
-			pProcess->m_pControl = TorControl::Create(config);
-			LOG_INFO_F("Tor Initialized: {}", pProcess->m_pControl != nullptr);
-
-			auto addresses_to_add = pProcess->m_activeServices;
-			lock.unlock();
-			if (pProcess->m_pControl != nullptr) {
-				for (auto iter = addresses_to_add.cbegin(); iter != addresses_to_add.cend(); iter++)
-				{
-					auto pTorAddress = pProcess->AddListener(iter->second.first, iter->second.second);
-					if (pTorAddress != nullptr) {
-						LOG_INFO_F("Re-added onion address {}", iter->first);
-					} else {
-						LOG_INFO_F("Failed to re-add onion address {}", iter->first);
-					}
+		auto addresses_to_add = pProcess->m_activeServices;
+		if (pProcess->m_pControl != nullptr) {
+			for (auto iter = addresses_to_add.cbegin(); iter != addresses_to_add.cend(); iter++)
+			{
+				auto pTorAddress = pProcess->AddListener(iter->second.first, iter->second.second);
+				if (pTorAddress != nullptr) {
+					LOG_INFO_F("Re-added onion address {}", iter->first);
+				} else {
+					LOG_INFO_F("Failed to re-add onion address {}", iter->first);
 				}
 			}
 		}
-		catch (const std::exception& e)
-		{
-			LOG_ERROR_F("Exception thrown: {}", e);
-			ThreadUtil::SleepFor(std::chrono::seconds(30), ShutdownManagerAPI::WasShutdownRequested());
-		}
+	}
+	catch (const std::exception& e)
+	{
+		LOG_ERROR_F("Exception thrown: {}", e);
+		ThreadUtil::SleepFor(std::chrono::seconds(30), ShutdownManagerAPI::WasShutdownRequested());
 	}
 }
 

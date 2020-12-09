@@ -28,44 +28,9 @@ std::shared_ptr<TorControl> TorControl::Create(const TorConfig& torConfig) noexc
 {
 	try
 	{
-		const fs::path command = fs::current_path() / "tor" / "tor";
-
-#ifdef __linux__
-		std::error_code ec;
-		fs::path torDataPath = torConfig.GetTorDataPath() / ("data" + std::to_string(torConfig.GetControlPort()));
-		fs::remove_all(torDataPath, ec);
-		fs::create_directories(torDataPath, ec);
-		std::string torrcPath = (torConfig.GetTorDataPath() / ".torrc").u8string();
-#else
-		std::error_code ec;
-		fs::path torDataPath = "./tor/data" + std::to_string(torConfig.GetControlPort());
-		fs::remove_all(torDataPath, ec);
-		fs::create_directories(torDataPath, ec);
-		fs::remove("./tor/.torrc", ec);
-		fs::copy_file(torConfig.GetTorDataPath() / ".torrc", "./tor/.torrc", ec);
-		std::string torrcPath = "./tor/.torrc";
-#endif
-
-		std::vector<std::string> args({
-			command.u8string(),
-			"--ControlPort", std::to_string(torConfig.GetControlPort()),
-			"--SocksPort", std::to_string(torConfig.GetSocksPort()),
-			"--DataDirectory", torDataPath.u8string(),
-			"--HashedControlPassword", torConfig.GetHashedControlPassword(),
-			"-f", torrcPath,
-			"--ignore-missing-torrc"
-		});
-		
-		ChildProcess::UCPtr pProcess = ChildProcess::Create(args);
-		if (pProcess == nullptr) {
-			// Fallback to tor on path
-			args[0] = "tor";
-			pProcess = ChildProcess::Create(args);
-		}
-
 		auto pClient = TorControlClient::Connect(torConfig.GetControlPort(), torConfig.GetControlPassword());
 		if (pClient != nullptr) {
-			return std::make_unique<TorControl>(torConfig, std::move(pClient), std::move(pProcess));
+			return std::make_unique<TorControl>(torConfig, std::move(pClient), nullptr);
 		}
 	}
 	catch (std::exception& e)
