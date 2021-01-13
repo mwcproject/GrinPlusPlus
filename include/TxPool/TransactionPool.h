@@ -4,14 +4,13 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
-#include <Common/ImportExport.h>
 #include <TxPool/DandelionStatus.h>
 #include <TxPool/PoolType.h>
 #include <Core/Models/Transaction.h>
 #include <Core/Models/ShortId.h>
 #include <Core/Models/FullBlock.h>
 #include <Core/Models/BlockHeader.h>
-#include <Config/Config.h>
+#include <Core/Config.h>
 #include <PMMR/TxHashSetManager.h>
 #include <Crypto/Hash.h>
 #include <vector>
@@ -20,11 +19,7 @@
 // Forward Declarations
 class IBlockDB;
 
-#ifdef MW_TX_POOL
-#define TX_POOL_API EXPORT
-#else
-#define TX_POOL_API IMPORT
-#endif
+#define TX_POOL_API
 
 enum class EAddTransactionStatus
 {

@@ -6,6 +6,7 @@
 #include <TxBuilder.h>
 #include <TestHelper.h>
 
+#include <Consensus.h>
 #include <BlockChain/BlockChain.h>
 #include <Database/Database.h>
 #include <Database/BlockDb.h>
@@ -13,7 +14,6 @@
 #include <TxPool/TransactionPool.h>
 #include <Core/Validation/TransactionValidator.h>
 #include <Core/File/FileRemover.h>
-#include <Consensus/Common.h>
 #include <Core/Util/TransactionUtil.h>
 
 //
@@ -374,7 +374,7 @@ TEST_CASE("Reorg Chain")
 		(uint64_t)(minedChain[1].coinbaseAmount - 10'000'000)
 	});
 
-	Transaction spendTransaction = txBuilder.BuildTx(0, { input }, { newOutput, changeOutput });
+	Transaction spendTransaction = txBuilder.BuildTx(Fee(), { input }, { newOutput, changeOutput });
 
 	// Create block 30a
 	Test::Tx coinbaseTx30a = txBuilder.BuildCoinbaseTx(KeyChainPath({ 0, 30 }));

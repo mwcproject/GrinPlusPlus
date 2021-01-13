@@ -25,8 +25,8 @@ public:
 	TransactionInput(const EOutputFeatures features, Commitment&& commitment);
 	TransactionInput(const EOutputFeatures features, const Commitment& commitment)
 		: TransactionInput(features, Commitment(commitment)) {  }
-	TransactionInput(const TransactionInput& transactionInput) = default;
-	TransactionInput(TransactionInput&& transactionInput) noexcept = default;
+	TransactionInput(const TransactionInput& input) = default;
+	TransactionInput(TransactionInput&& input) noexcept = default;
 	TransactionInput() = default;
 
 	//
@@ -37,18 +37,16 @@ public:
 	//
 	// Operators
 	//
-	TransactionInput& operator=(const TransactionInput& transactionInput) = default;
-	TransactionInput& operator=(TransactionInput&& transactionInput) noexcept = default;
-	bool operator<(const TransactionInput& transactionInput) const { return GetCommitment() < transactionInput.GetCommitment(); }
-	bool operator==(const TransactionInput& transactionInput) const { return GetHash() == transactionInput.GetHash(); }
+	TransactionInput& operator=(const TransactionInput& rhs) = default;
+	TransactionInput& operator=(TransactionInput&& rhs) noexcept = default;
+	bool operator<(const TransactionInput& rhs) const { return GetCommitment() < rhs.GetCommitment(); }
+	bool operator==(const TransactionInput& rhs) const { return GetFeatures() == rhs.GetFeatures() && GetCommitment() == rhs.GetCommitment(); }
 
 	//
 	// Getters
 	//
 	EOutputFeatures GetFeatures() const { return m_features; }
 	const Commitment& GetCommitment() const final { return m_commitment; }
-
-	bool IsCoinbase() const { return (m_features & EOutputFeatures::COINBASE_OUTPUT) == EOutputFeatures::COINBASE_OUTPUT; }
 
 	//
 	// Serialization/Deserialization
@@ -64,8 +62,6 @@ public:
 	const Hash& GetHash() const final { return m_hash; }
 
 private:
-	// The features of the output being spent. 
-	// We will check maturity for coinbase output.
 	EOutputFeatures m_features;
 
 	// The commit referencing the output being spent.

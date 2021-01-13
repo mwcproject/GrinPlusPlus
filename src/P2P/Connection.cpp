@@ -8,7 +8,6 @@
 
 #include <Net/SocketException.h>
 #include <Common/Util/ThreadUtil.h>
-#include <Common/ThreadManager.h>
 #include <Common/Logger.h>
 #include <thread>
 #include <chrono>
@@ -43,7 +42,6 @@ Connection::Ptr Connection::CreateInbound(
 		pMessageProcessor
 	);
 	pConnection->m_connectionThread = std::thread(Thread_ProcessConnection, pConnection);
-	ThreadManagerAPI::SetThreadName(pConnection->m_connectionThread.get_id(), "PEER");
 	return pConnection;
 }
 
@@ -70,7 +68,6 @@ Connection::Ptr Connection::CreateOutbound(
 	);
 
 	pConnection->m_connectionThread = std::thread(Thread_ProcessConnection, pConnection);
-	ThreadManagerAPI::SetThreadName(pConnection->m_connectionThread.get_id(), "PEER");
 	return pConnection;
 }
 
@@ -101,6 +98,8 @@ bool Connection::ExceedsRateLimit() const
 //
 void Connection::Thread_ProcessConnection(std::shared_ptr<Connection> pConnection)
 {
+	LoggerAPI::SetThreadName("PEER");
+
 	try
 	{
 		pConnection->Connect();
@@ -111,7 +110,7 @@ void Connection::Thread_ProcessConnection(std::shared_ptr<Connection> pConnectio
 			pConnection->m_pSocket->CloseSocket();
 		}
 
-        LOG_ERROR_F("Exception caught: {}", e);
+        LOG_ERROR_F("Failed to connect: {}", e);
         pConnection->m_terminate = true;
 		ThreadUtil::Detach(pConnection->m_connectionThread);
 		return;
@@ -201,7 +200,7 @@ void Connection::Run()
 					break;
 				}
 
-				ThreadUtil::SleepFor(std::chrono::milliseconds(5), m_terminate);
+				ThreadUtil::SleepFor(std::chrono::milliseconds(5));
 			}
 		}
 		catch (const DeserializationException&)
@@ -240,10 +239,7 @@ void Connection::Run()
 
 bool Connection::SendMsg(const IMessage& message)
 {
-	std::vector<uint8_t> serialized_message = message.Serialize(
-		m_config.GetEnvironment(),
-		GetProtocolVersion()
-	);
+	std::vector<uint8_t> serialized_message = message.Serialize(GetProtocolVersion());
 	if (message.GetMessageType() != MessageTypes::Ping && message.GetMessageType() != MessageTypes::Pong) {
 		LOG_TRACE_F(
 			"Sending {}b '{}' message to {}",

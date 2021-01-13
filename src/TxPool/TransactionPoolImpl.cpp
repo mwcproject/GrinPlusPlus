@@ -1,9 +1,10 @@
 #include "TransactionPoolImpl.h"
 #include "ValidTransactionFinder.h"
 
+#include <Consensus.h>
+#include <Core/Global.h>
 #include <Core/Util/TransactionUtil.h>
 #include <Database/BlockDb.h>
-#include <Consensus/BlockTime.h>
 #include <Crypto/CSPRNG.h>
 #include <Common/Logger.h>
 #include <Core/Util/FeeUtil.h>
@@ -24,6 +25,7 @@ EAddTransactionStatus TransactionPool::AddTransaction(
 	const BlockHeader& lastConfirmedBlock)
 {
 	std::unique_lock<std::shared_mutex> writeLock(m_mutex);
+	const uint64_t next_block_height = lastConfirmedBlock.GetHeight() + 1;
 
 	if (poolType == EPoolType::MEMPOOL && m_memPool.ContainsTransaction(*pTransaction))
 	{
@@ -32,8 +34,7 @@ EAddTransactionStatus TransactionPool::AddTransaction(
 	}
 
 	// Verify fee meets minimum
-	const uint64_t feeBase = 1000000; // TODO: Read from config.
-	if (FeeUtil::CalculateMinimumFee(feeBase, *pTransaction) > FeeUtil::CalculateActualFee(*pTransaction))
+	if (!pTransaction->FeeMeetsMinimum(next_block_height))
 	{
 		LOG_WARNING_F("Fee too low for transaction ({})", *pTransaction);
 		return EAddTransactionStatus::LOW_FEE;
@@ -42,7 +43,7 @@ EAddTransactionStatus TransactionPool::AddTransaction(
 	// Verify lock time
 	for (const TransactionKernel& kernel : pTransaction->GetKernels())
 	{
-		if (kernel.GetLockHeight() > (lastConfirmedBlock.GetHeight() + 1))
+		if (kernel.GetLockHeight() > next_block_height)
 		{
 			LOG_INFO_F("Invalid lock height ({})", *pTransaction);
 			return EAddTransactionStatus::NOT_ADDED;
@@ -51,7 +52,7 @@ EAddTransactionStatus TransactionPool::AddTransaction(
 
 	try
 	{
-		TransactionValidator().Validate(*pTransaction);
+		TransactionValidator().Validate(*pTransaction, next_block_height);
 	}
 	catch (std::exception& e)
 	{
@@ -74,7 +75,7 @@ EAddTransactionStatus TransactionPool::AddTransaction(
 	else if (poolType == EPoolType::STEMPOOL)
 	{
 		const uint8_t random = (uint8_t)CSPRNG::GenerateRandom(0, 100);
-		if (random <= m_config.GetNodeConfig().GetDandelion().GetStemProbability())
+		if (random <= Global::GetConfig().GetStemProbability())
 		{
 			LOG_INFO_F("Stemming transaction ({})", *pTransaction);
 			m_stemPool.AddTransaction(pTransaction, EDandelionStatus::TO_STEM);
@@ -189,7 +190,7 @@ std::vector<TransactionPtr> TransactionPool::GetExpiredTransactions() const
 {
 	std::shared_lock<std::shared_mutex> readLock(m_mutex);
 
-	const uint16_t embargoSeconds = m_config.GetNodeConfig().GetDandelion().GetEmbargoSeconds() + (uint16_t)CSPRNG::GenerateRandom(0, 30);
+	const uint16_t embargoSeconds = Global::GetConfig().GetEmbargoSeconds() + (uint16_t)CSPRNG::GenerateRandom(0, 30);
 	return m_stemPool.GetExpiredTransactions(embargoSeconds);
 }
 

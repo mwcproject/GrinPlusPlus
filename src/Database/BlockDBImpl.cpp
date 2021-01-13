@@ -2,6 +2,7 @@
 #include "RocksDB/RocksDBFactory.h"
 #include "RocksDB/RocksDB.h"
 
+#include <BlockChain/Chain.h>
 #include <Core/Models/FullBlock.h>
 #include <Core/Models/BlockSums.h>
 #include <Core/Models/OutputLocation.h>
@@ -16,7 +17,7 @@ using namespace rocksdb;
 
 std::shared_ptr<BlockDB> BlockDB::OpenDB(const Config& config)
 {
-	fs::path dbPath = config.GetNodeConfig().GetDatabasePath() / "CHAIN/";
+	fs::path dbPath = config.GetDatabasePath() / "CHAIN/";
 
 	ColumnFamilyDescriptor BLOCK_COLUMN = ColumnFamilyDescriptor("BLOCK", *ColumnFamilyOptions().OptimizeForPointLookup(1024));
 	ColumnFamilyDescriptor HEADER_COLUMN = ColumnFamilyDescriptor("HEADER", *ColumnFamilyOptions().OptimizeForPointLookup(1024));
@@ -48,6 +49,89 @@ void BlockDB::Rollback() noexcept
 {
 	m_uncommitted.clear();
 	m_pRocksDB->Rollback();
+}
+
+class DBVersion : public Traits::ISerializable
+{
+public:
+	DBVersion(const uint8_t version) : m_version(version) { }
+
+	uint8_t Get() const noexcept { return m_version; }
+
+	void Serialize(Serializer& serializer) const final
+	{
+		serializer.Append<uint8_t>(m_version);
+	}
+
+	static DBVersion Deserialize(ByteBuffer& byteBuffer)
+	{
+		return DBVersion(byteBuffer.ReadU8());
+	}
+
+private:
+	uint8_t m_version;
+};
+
+uint8_t BlockDB::GetVersion() const
+{
+	auto pVersion = m_pRocksDB->Get<DBVersion>("default", "VERSION");
+	if (pVersion != nullptr) {
+		return pVersion->Get();
+	}
+
+	return 0;
+}
+
+void BlockDB::SetVersion(const uint8_t version)
+{
+	m_pRocksDB->Put("default", DBEntry("VERSION", DBVersion(version)));
+}
+
+void BlockDB::MigrateBlocks()
+{
+	//std::vector<FullBlock> blocks;
+
+	//auto iter = m_pRocksDB->GetIterator("BLOCK");
+	//for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {
+	//	rocksdb::Slice key = iter->key();
+	//	try {
+	//		auto pBlock = m_pRocksDB->Get<FullBlock>("BLOCK", key, EProtocolVersion::V1);
+	//		blocks.push_back(std::move(*pBlock));
+	//	}
+	//	catch (std::exception& e) {
+	//		LOG_DEBUG_F("Failed to migrate block {}. Error: {}", key.data(), e.what());
+	//	}
+	//}
+
+	//for (const FullBlock& block : blocks)
+	//{
+	//	const Hash& hash = block.GetHash();
+	//	rocksdb::Slice key((const char*)hash.data(), hash.size());
+	//	m_pRocksDB->Put("BLOCK", DBEntry(key, block));
+	//}
+}
+
+void BlockDB::Compact(const std::shared_ptr<const Chain>& pChain)
+{
+	std::vector<std::string> blocks_to_remove;
+
+	const uint64_t horizon = Consensus::GetHorizonHeight(pChain->GetHeight());
+	auto iter = m_pRocksDB->GetIterator("BLOCK");
+	for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {
+		rocksdb::Slice key = iter->key();
+		try {
+			auto pBlock = m_pRocksDB->Get<FullBlock>("BLOCK", key);
+			if (pBlock->GetHeight() < horizon) {
+				blocks_to_remove.push_back(key.ToString());
+			}
+		}
+		catch (std::exception& e) {
+			LOG_DEBUG_F("Failed to deserialize block {}. Error: {}", key.ToString(true), e.what());
+			blocks_to_remove.push_back(key.ToString());
+		}
+	}
+
+	m_pRocksDB->Delete("BLOCK", blocks_to_remove);
 }
 
 BlockHeaderPtr BlockDB::GetBlockHeader(const Hash& hash) const
@@ -108,7 +192,7 @@ void BlockDB::AddBlock(const FullBlock& block)
 {
 	LOG_TRACE_F("Adding block {}", block);
 
-	const std::vector<unsigned char>& hash = block.GetHash().GetData();
+	const Hash& hash = block.GetHash();
 	rocksdb::Slice key((const char*)hash.data(), hash.size());
 	m_pRocksDB->Put("BLOCK", DBEntry<FullBlock>(key, block));
 }
@@ -131,7 +215,7 @@ void BlockDB::AddBlockSums(const Hash& blockHash, const BlockSums& blockSums)
 	LOG_TRACE_F("Adding BlockSums for block {}", blockHash);
 
 	rocksdb::Slice key((const char*)blockHash.data(), blockHash.size());
-	 m_pRocksDB->Put("BLOCK_SUMS", DBEntry<BlockSums>(key, blockSums));
+	m_pRocksDB->Put("BLOCK_SUMS", DBEntry<BlockSums>(key, blockSums));
 }
 
 std::unique_ptr<BlockSums> BlockDB::GetBlockSums(const Hash& blockHash) const
@@ -208,9 +292,9 @@ void BlockDB::ClearSpentPositions()
 	m_pRocksDB->DeleteAll("SPENT_OUTPUTS");
 }
 
-void BlockDB::OnInitWrite()
+void BlockDB::OnInitWrite(const bool batch)
 {
-	m_pRocksDB->OnInitWrite();
+	m_pRocksDB->OnInitWrite(batch);
 }
 
 void BlockDB::OnEndWrite()

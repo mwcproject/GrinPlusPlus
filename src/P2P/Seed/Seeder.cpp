@@ -10,7 +10,6 @@
 #include <Net/Socket.h>
 #include <Common/Util/StringUtil.h>
 #include <Common/Util/ThreadUtil.h>
-#include <Common/ThreadManager.h>
 #include <Common/Logger.h>
 #include <algorithm>
 
@@ -57,12 +56,12 @@ std::unique_ptr<Seeder> Seeder::Create(
 //
 void Seeder::Thread_Seed(Seeder& seeder)
 {
-	ThreadManagerAPI::SetCurrentThreadName("SEED");
+	LoggerAPI::SetThreadName("SEED");
 	LOG_TRACE("BEGIN");
 
 	auto lastConnectTime = std::chrono::system_clock::now() - std::chrono::seconds(10);
 
-	const size_t minimumConnections = seeder.m_pContext->GetConfig().GetP2PConfig().GetMinConnections();
+	const size_t minimumConnections = Global::GetConfig().GetMinPeers();
 	while (!seeder.m_terminate)
 	{
 		try
@@ -87,7 +86,7 @@ void Seeder::Thread_Seed(Seeder& seeder)
 			LOG_WARNING_F("Exception thrown: {}", e.what());
 		}
 
-		ThreadUtil::SleepFor(std::chrono::milliseconds(100), seeder.m_terminate);
+		ThreadUtil::SleepFor(std::chrono::milliseconds(100));
 	}
 
 	LOG_TRACE("END");
@@ -99,19 +98,19 @@ void Seeder::Thread_Seed(Seeder& seeder)
 //
 void Seeder::Thread_Listener(Seeder& seeder)
 {
-	ThreadManagerAPI::SetCurrentThreadName("LISTENER");
+	LoggerAPI::SetThreadName("LISTENER");
 	LOG_TRACE("BEGIN");
 
 	try
 	{
-		const uint16_t portNumber = seeder.m_pContext->GetConfig().GetEnvironment().GetP2PPort();
+		const uint16_t portNumber = Global::GetConfig().GetP2PPort();
 		asio::ip::tcp::acceptor acceptor(*seeder.m_pAsioContext, asio::ip::tcp::endpoint(asio::ip::tcp::v4(), portNumber));
 		asio::error_code errorCode;
 		acceptor.listen(asio::socket_base::max_listen_connections, errorCode);
 
 		if (!errorCode)
 		{
-			const int maximumConnections = seeder.m_pContext->GetConfig().GetP2PConfig().GetMaxConnections();
+			const int maximumConnections = Global::GetConfig().GetMaxPeers();
 			while (!seeder.m_terminate)
 			{
 				SocketPtr pSocket = SocketPtr(new Socket(SocketAddress(IPAddress(), portNumber)));
@@ -135,7 +134,7 @@ void Seeder::Thread_Listener(Seeder& seeder)
 				}
 				else
 				{
-					ThreadUtil::SleepFor(std::chrono::milliseconds(10), seeder.m_terminate);
+					ThreadUtil::SleepFor(std::chrono::milliseconds(10));
 				}
 			}
 

@@ -8,8 +8,7 @@
 #include "Cuckarooz.h"
 #include "Cuckatoo.h"
 
-#include <Consensus/BlockTime.h>
-#include <Consensus/BlockDifficulty.h>
+#include <Consensus.h>
 
 PoWValidator::PoWValidator(const Config& config, std::shared_ptr<const IBlockDB> pBlockDB)
 	: m_config(config), m_pBlockDB(pBlockDB)
@@ -26,10 +25,11 @@ bool PoWValidator::IsPoWValid(const BlockHeader& header, const BlockHeader& prev
 		return false;
 	}
 
+	const uint64_t max_difficulty = GetMaximumDifficulty(header);
 	const uint64_t targetDifficulty = header.GetTotalDifficulty() - previousHeader.GetTotalDifficulty();
-	if (GetMaximumDifficulty(header) < targetDifficulty)
+	if (max_difficulty < targetDifficulty)
 	{
-		LOG_WARNING_F("Target difficulty too high for block {}", header);
+		LOG_WARNING_F("Target difficulty {} too high for block {}. Max: {}", targetDifficulty, header, max_difficulty);
 		return false;
 	}
 

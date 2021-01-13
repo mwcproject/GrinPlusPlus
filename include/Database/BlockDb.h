@@ -11,11 +11,35 @@ class BlockSums;
 class FullBlock;
 class Commitment;
 class OutputLocation;
+class Chain;
 
 class IBlockDB : public Traits::IBatchable
 {
 public:
 	virtual ~IBlockDB() = default;
+
+	/// <summary>
+	/// Looks up the current serialization format version of the DB.
+	/// </summary>
+	/// <returns>The current DB format version.</returns>
+	virtual uint8_t GetVersion() const = 0;
+
+	/// <summary>
+	/// Updates the DB serialization format version.
+	/// </summary>
+	/// <param name="version">The new version.</param>
+	virtual void SetVersion(const uint8_t version) = 0;
+
+	/// <summary>
+	/// Updates FullBlock entries to the latest serialization format.
+	/// </summary>
+	virtual void MigrateBlocks() = 0;
+
+	/// <summary>
+	/// Removes all blocks beyond the horizon.
+	/// </summary>
+	/// <param name="pChain"></param>
+	virtual void Compact(const std::shared_ptr<const Chain>& pChain) = 0;
 
 	virtual BlockHeaderPtr GetBlockHeader(const Hash& hash) const = 0;
 

@@ -17,7 +17,7 @@ public:
 
 	void Commit() final;
 	void Rollback() noexcept final;
-	void OnInitWrite() final;
+	void OnInitWrite(const bool /*batch*/) final;
 	void OnEndWrite() final;
 
 	KeyChainPath GetNextChildPath(const KeyChainPath& parentPath) final;
@@ -27,10 +27,18 @@ public:
 		const uuids::uuid& slateId,
 		const SlateStage& stage
 	) const final;
+		
+	std::pair<std::unique_ptr<Slate>, std::string> LoadLatestSlate(
+		const SecureVector& masterSeed,
+		const uuids::uuid& slateId
+	) const final;
+
+	std::string LoadArmoredSlatepack(const uuids::uuid& slateId) const final;
 
 	void SaveSlate(
 		const SecureVector& masterSeed,
-		const Slate& slate
+		const Slate& slate,
+		const std::string& slatepack_message
 	) final;
 
 	std::unique_ptr<SlateContextEntity> LoadSlateContext(

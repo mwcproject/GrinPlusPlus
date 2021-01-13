@@ -16,7 +16,7 @@ std::shared_ptr<Locked<ChainStore>> ChainStore::Load(const Config& config, std::
 	LOG_TRACE("Loading Chain");
 	std::shared_ptr<BlockIndexAllocator> pAllocator = std::make_shared<BlockIndexAllocator>();
 
-	const auto& chainPath = config.GetNodeConfig().GetChainPath();
+	const auto& chainPath = config.GetChainPath();
 	std::shared_ptr<Chain> pConfirmedChain = Chain::Load(pAllocator, EChainType::CONFIRMED, chainPath / "confirmed.chain", pGenesisIndex);
 	if (pConfirmedChain == nullptr)
 	{
@@ -33,14 +33,6 @@ std::shared_ptr<Locked<ChainStore>> ChainStore::Load(const Config& config, std::
 	}
 
 	pAllocator->AddChain(pCandidateChain);
-	//std::shared_ptr<Chain> pSyncChain = Chain::Load(pAllocator, EChainType::SYNC, chainPath / "sync.chain", pGenesisIndex);
-	//if (pSyncChain == nullptr)
-	//{
-	//	LOG_INFO("Failed to load sync chain");
-	//	throw std::exception();
-	//}
-
-	//pAllocator->AddChain(pSyncChain);
 
 	auto pChainStore = std::shared_ptr<ChainStore>(new ChainStore(pConfirmedChain, pCandidateChain));
 	return std::make_shared<Locked<ChainStore>>(Locked<ChainStore>(pChainStore));
@@ -60,11 +52,11 @@ void ChainStore::Rollback() noexcept
 	m_pConfirmedChain->Rollback();
 }
 
-void ChainStore::OnInitWrite()
+void ChainStore::OnInitWrite(const bool batch)
 {
-	//m_pSyncChain->OnInitWrite();
-	m_pCandidateChain->OnInitWrite();
-	m_pConfirmedChain->OnInitWrite();
+	//m_pSyncChain->OnInitWrite(batch);
+	m_pCandidateChain->OnInitWrite(batch);
+	m_pConfirmedChain->OnInitWrite(batch);
 }
 
 void ChainStore::OnEndWrite()
@@ -149,10 +141,6 @@ std::shared_ptr<Chain> ChainStore::GetChain(const EChainType chainType)
 	{
 		return m_pCandidateChain;
 	}
-	//else if (chainType == EChainType::SYNC)
-	//{
-	//	return m_pSyncChain;
-	//}
 
 	throw std::exception();
 }
@@ -167,10 +155,6 @@ std::shared_ptr<const Chain> ChainStore::GetChain(const EChainType chainType) co
 	{
 		return m_pCandidateChain;
 	}
-	//else if (chainType == EChainType::SYNC)
-	//{
-	//	return m_pSyncChain;
-	//}
 
 	throw std::exception();
 }

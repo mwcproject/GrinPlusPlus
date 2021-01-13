@@ -1,16 +1,11 @@
 #pragma once
 
-#include <Config/Config.h>
+#include <Core/Config.h>
 #include <Wallet/WalletDB/WalletDB.h>
 #include <Core/Traits/Lockable.h>
-#include <Common/ImportExport.h>
 #include <Common/GrinStr.h>
 
-#ifdef MW_WalletDB
-#define WALLET_DB_API EXPORT
-#else
-#define WALLET_DB_API IMPORT
-#endif
+#define WALLET_DB_API
 
 class IWalletStore
 {

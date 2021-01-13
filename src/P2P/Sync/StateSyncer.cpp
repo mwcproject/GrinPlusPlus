@@ -1,9 +1,9 @@
 #include "StateSyncer.h"
 #include "../Messages/TxHashSetRequestMessage.h"
 
-#include <Consensus/BlockTime.h>
+#include <Consensus.h>
 #include <Common/Logger.h>
-#include <Common/ShutdownManager.h>
+#include <Core/Global.h>
 
 bool StateSyncer::SyncState(SyncStatus& syncStatus)
 {
@@ -96,7 +96,7 @@ bool StateSyncer::RequestState(const SyncStatus& syncStatus)
 		m_pPeer = nullptr;
 	}
 
-	if (!ShutdownManagerAPI::WasShutdownRequested())
+	if (Global::IsRunning())
 	{
 		const uint64_t headerHeight = syncStatus.GetHeaderHeight();
 		const uint64_t requestedHeight = headerHeight - Consensus::STATE_SYNC_THRESHOLD;

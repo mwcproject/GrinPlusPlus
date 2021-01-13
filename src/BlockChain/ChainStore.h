@@ -1,6 +1,6 @@
 #pragma once
 
-#include <Config/Config.h>
+#include <Core/Config.h>
 #include <Core/Traits/Lockable.h>
 #include <BlockChain/Chain.h>
 
@@ -11,7 +11,7 @@ public:
 
 	void Commit() final;
 	void Rollback() noexcept final;
-	void OnInitWrite() final;
+	void OnInitWrite(const bool batch) final;
 	void OnEndWrite() final;
 
 	std::shared_ptr<Chain> GetChain(const EChainType chainType);

@@ -1,6 +1,9 @@
 #include <iostream>
 
+#include <Consensus.h>
 #include <Common/Util/FileUtil.h>
+#include <Core/Global.h>
+#include <Core/Context.h>
 #include <Core/Models/Transaction.h>
 #include <Core/Util/JsonUtil.h>
 #include <Core/Validation/TransactionValidator.h>
@@ -14,6 +17,9 @@ int main(int argc, char* argv[])
         std::cout << "Usage: tx_verifier <tx.json>" << std::endl;
         return -1;
     }
+
+    auto pContext = Context::Create(Environment::MAINNET, Config::Default(Environment::MAINNET));
+    Global::Init(pContext);
 
     std::vector<uint8_t> bytes;
     if (!FileUtil::ReadFile(argv[1], bytes)) {
@@ -42,7 +48,7 @@ int main(int argc, char* argv[])
 
     try
     {
-        TransactionValidator().Validate(*pTransaction);
+        TransactionValidator().Validate(*pTransaction, (Consensus::HARD_FORK_INTERVAL * 4));
     }
     catch (std::exception& e)
     {
@@ -53,7 +59,7 @@ int main(int argc, char* argv[])
 
     std::cout << "Transaction is valid" << std::endl;
 
-    bytes = TransactionMessage(std::make_shared<Transaction>(*pTransaction)).Serialize(Environment(EEnvironmentType::MAINNET), EProtocolVersion::V2);
+    bytes = TransactionMessage(std::make_shared<Transaction>(*pTransaction)).Serialize(EProtocolVersion::V2);
     std::cout << HexUtil::ConvertToHex(bytes) << std::endl;
 
 

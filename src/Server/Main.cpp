@@ -6,10 +6,9 @@
 
 #include <GrinVersion.h>
 #include <Core/Context.h>
+#include <Core/Global.h>
 #include <Wallet/WalletManager.h>
-#include <Config/ConfigLoader.h>
-#include <Common/ShutdownManager.h>
-#include <Common/ThreadManager.h>
+#include <Core/Config.h>
 #include <Common/Logger.h>
 #include <Common/Util/ThreadUtil.h>
 
@@ -21,21 +20,24 @@
 
 using namespace std::chrono;
 
-ConfigPtr Initialize(const EEnvironmentType environment, const bool headless);
+ConfigPtr Initialize(const Environment environment);
 void Run(const ConfigPtr& pConfig, const Options& options);
 
 int main(int argc, char* argv[])
 {
-	ThreadManagerAPI::SetCurrentThreadName("MAIN");
+	LoggerAPI::SetThreadName("MAIN");
 
 	Options opt = ParseOptions(argc, argv);
-	if (opt.help)
-	{
+	if (opt.help) {
 		PrintHelp();
 		return 0;
 	}
 
-	ConfigPtr pConfig = Initialize(opt.environment, opt.headless);
+	if (opt.headless) {
+		IO::MakeHeadless();
+	}
+
+	ConfigPtr pConfig = Initialize(opt.environment);
 
 	try
 	{
@@ -54,18 +56,15 @@ int main(int argc, char* argv[])
 	return 0;
 }
 
-ConfigPtr Initialize(const EEnvironmentType environment, const bool headless)
+ConfigPtr Initialize(const Environment environment)
 {
-	if (!headless)
-	{
-		IO::Out("INITIALIZING...");
-		IO::Flush();
-	}
+	IO::Out("INITIALIZING...");
+	IO::Flush();
 
 	ConfigPtr pConfig = nullptr;
 	try
 	{
-		pConfig = ConfigLoader::Load(environment);
+		pConfig = Config::Load(environment);
 	}
 	catch (std::exception& e)
 	{
@@ -83,8 +82,6 @@ ConfigPtr Initialize(const EEnvironmentType environment, const bool headless)
 		throw;
 	}
 
-	ShutdownManagerAPI::RegisterHandlers();
-
 	return pConfig;
 }
 
@@ -93,15 +90,18 @@ void Run(const ConfigPtr& pConfig, const Options& options)
 	LOG_INFO_F("Starting Grin++ v{}", GRINPP_VERSION);
 
 	Context::Ptr pContext = nullptr;
+
 	try
 	{
-		pContext = Context::Create(pConfig);
+		pContext = Context::Create(options.environment, pConfig);
+		Global::Init(pContext);
 	}
 	catch (std::exception& e)
 	{
-		IO::Err("Failed to create context", e);
+		IO::Err("Failed to initialize global context", e);
 		throw;
 	}
+
 
 	std::unique_ptr<Node> pNode = nullptr;
 	INodeClientPtr pNodeClient = nullptr;
@@ -120,38 +120,35 @@ void Run(const ConfigPtr& pConfig, const Options& options)
 	}
 
 	std::unique_ptr<WalletDaemon> pWallet = nullptr;
-	if (options.include_wallet)
-	{
+	if (options.include_wallet) {
 		pWallet = WalletDaemon::Create(
 			pContext->GetConfig(),
-			pContext->GetTorProcess(),
+			Global::GetTorProcess(),
 			pNodeClient
 		);
 	}
 
 	system_clock::time_point startTime = system_clock::now();
-	while (true)
-	{
-		if (ShutdownManagerAPI::WasShutdownRequested())
-		{
-			if (!options.headless)
-			{
-				IO::Clear();
-				IO::Out("SHUTTING DOWN...");
-			}
+	while (true) {
+		if (!Global::IsRunning()) {
+			IO::Clear();
+			IO::Out("SHUTTING DOWN...");
 
 			break;
 		}
 
-		if (pNode != nullptr && !options.headless)
-		{
+		if (pNode != nullptr && !options.headless) {
 			auto duration = system_clock::now().time_since_epoch() - startTime.time_since_epoch();
 			const int secondsRunning = (int)(duration_cast<seconds>(duration).count());
 			pNode->UpdateDisplay(secondsRunning);
 		}
 
-		ThreadUtil::SleepFor(seconds(1), ShutdownManagerAPI::WasShutdownRequested());
+		ThreadUtil::SleepFor(seconds(1));
 	}
 
 	LOG_INFO_F("Closing Grin++ v{}", GRINPP_VERSION);
+	pWallet.reset();
+	pNodeClient.reset();
+	pNode.reset();
+	pContext.reset();
 }

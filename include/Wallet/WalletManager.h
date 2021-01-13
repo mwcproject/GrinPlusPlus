@@ -5,8 +5,7 @@
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <Common/Compat.h>
-#include <Common/ImportExport.h>
-#include <Config/Config.h>
+#include <Core/Config.h>
 #include <Wallet/NodeClient.h>
 #include <Wallet/SessionToken.h>
 #include <Wallet/Enums/SelectionStrategy.h>
@@ -34,11 +33,7 @@
 #include <Common/Secure.h>
 #include <Common/GrinStr.h>
 
-#ifdef MW_WALLET
-#define WALLET_API EXPORT
-#else
-#define WALLET_API IMPORT
-#endif
+#define WALLET_API
 
 class IWalletManager
 {

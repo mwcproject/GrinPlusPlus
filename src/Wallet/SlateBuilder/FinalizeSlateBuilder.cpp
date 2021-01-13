@@ -6,6 +6,8 @@
 #include <Core/Exceptions/WalletException.h>
 #include <Core/Validation/KernelSignatureValidator.h>
 #include <Core/Validation/TransactionValidator.h>
+#include <Wallet/Models/Slatepack/Armor.h>
+#include <Wallet/NodeClient.h>
 #include <Wallet/Wallet.h>
 
 // TODO: To help prevent "play" attacks, make sure any outputs provided by the receiver are not already on-chain.
@@ -85,7 +87,11 @@ std::pair<Slate, Transaction> FinalizeSlateBuilder::Finalize(const Slate& rcvSla
 	walletTx.SetTransaction(*pTransaction);
 
 	// Update database with latest WalletTx
-	UpdateDatabase(walletTx, finalizeSlate);
+	UpdateDatabase(
+		walletTx,
+		finalizeSlate,
+		Armor::Pack(m_pWallet->GetSlatepackAddress(), finalizeSlate)
+	);
 
 	return std::pair{ finalizeSlate, *pTransaction };
 }
@@ -183,9 +189,11 @@ std::unique_ptr<Transaction> FinalizeSlateBuilder::BuildTransaction(
 		kernel,
 		finalizeSlate.offset
 	);
+
 	try
 	{
-		TransactionValidator().Validate(transaction); // TODO: Check if inputs unspent(txHashSet->Validate())?
+		const uint64_t block_height = m_pNode->GetChainHeight() + 1;
+		TransactionValidator().Validate(transaction, block_height); // TODO: Check if inputs unspent(txHashSet->Validate())?
 	}
 	catch (std::exception& e)
 	{
@@ -241,10 +249,11 @@ bool FinalizeSlateBuilder::VerifyPaymentProofs(
 
 void FinalizeSlateBuilder::UpdateDatabase(
 	const WalletTx& walletTx,
-	const Slate& finalizeSlate) const
+	const Slate& finalizeSlate,
+	const std::string& armored_slatepack) const
 {
 	auto pBatch = m_pWallet->GetDatabase().BatchWrite();
-	pBatch->SaveSlate(m_pWallet->GetMasterSeed(), finalizeSlate);
+	pBatch->SaveSlate(m_pWallet->GetMasterSeed(), finalizeSlate, armored_slatepack);
 	pBatch->AddTransaction(m_pWallet->GetMasterSeed(), walletTx);
 	pBatch->Commit();
 }

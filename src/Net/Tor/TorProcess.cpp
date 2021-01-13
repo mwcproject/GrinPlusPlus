@@ -3,8 +3,8 @@
 #include <Net/Tor/TorAddressParser.h>
 #include <Net/Tor/TorConnection.h>
 #include <Common/Util/ThreadUtil.h>
-#include <Common/ShutdownManager.h>
 #include <Common/Logger.h>
+#include <Core/Global.h>
 #include <cstdlib>
 #include <memory>
 
@@ -12,6 +12,7 @@
 
 TorProcess::~TorProcess()
 {
+	m_shutdown = true;
 	LOG_INFO("Terminating tor process");
 	ThreadUtil::Join(m_initThread);
 }
@@ -26,30 +27,39 @@ TorProcess::Ptr TorProcess::Initialize(const fs::path& torDataPath, const uint16
 
 void TorProcess::Thread_Initialize(TorProcess* pProcess)
 {
-	try
+	while (Global::IsRunning() && !pProcess->m_shutdown)
 	{
-		LOG_INFO("Initializing Tor");
-		TorConfig config{ pProcess->m_socksPort, pProcess->m_controlPort, pProcess->m_torDataPath };
-		pProcess->m_pControl = TorControl::Create(config);
-		LOG_INFO_F("Tor Initialized: {}", pProcess->m_pControl != nullptr);
+		try
+		{
+			std::unique_lock<std::mutex> lock(pProcess->m_mutex);
+			
+			LOG_INFO("Initializing Tor");
+			pProcess->m_pControl = TorControl::Create(
+				pProcess->m_socksPort,
+				pProcess->m_controlPort,
+				pProcess->m_torDataPath
+			);
+			LOG_INFO_F("Tor Initialized: {}", pProcess->m_pControl != nullptr);
 
-		auto addresses_to_add = pProcess->m_activeServices;
-		if (pProcess->m_pControl != nullptr) {
-			for (auto iter = addresses_to_add.cbegin(); iter != addresses_to_add.cend(); iter++)
-			{
-				auto pTorAddress = pProcess->AddListener(iter->second.first, iter->second.second);
-				if (pTorAddress != nullptr) {
-					LOG_INFO_F("Re-added onion address {}", iter->first);
-				} else {
-					LOG_INFO_F("Failed to re-add onion address {}", iter->first);
+			auto addresses_to_add = pProcess->m_activeServices;
+			lock.unlock();
+			if (pProcess->m_pControl != nullptr) {
+				for (auto iter = addresses_to_add.cbegin(); iter != addresses_to_add.cend(); iter++)
+				{
+					auto pTorAddress = pProcess->AddListener(iter->second.first, iter->second.second);
+					if (pTorAddress != nullptr) {
+						LOG_INFO_F("Re-added onion address {}", iter->first);
+					} else {
+						LOG_INFO_F("Failed to re-add onion address {}", iter->first);
+					}
 				}
 			}
 		}
-	}
-	catch (const std::exception& e)
-	{
-		LOG_ERROR_F("Exception thrown: {}", e);
-		ThreadUtil::SleepFor(std::chrono::seconds(30), ShutdownManagerAPI::WasShutdownRequested());
+		catch (const std::exception& e)
+		{
+			LOG_ERROR_F("Exception thrown: {}", e);
+			ThreadUtil::SleepFor(std::chrono::seconds(30));
+		}
 	}
 }
 
@@ -69,7 +79,7 @@ bool TorProcess::RetryInit()
 	std::unique_lock<std::mutex> lock(m_mutex);
 
 	if (m_pControl == nullptr) {
-		m_pControl = TorControl::Create(TorConfig{ m_socksPort, m_controlPort, m_torDataPath });
+		m_pControl = TorControl::Create(m_socksPort, m_controlPort, m_torDataPath);
 		return m_pControl != nullptr;
 	}
 

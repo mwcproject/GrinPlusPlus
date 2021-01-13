@@ -298,6 +298,7 @@ __pycache__/
 *.tlog
 *.lastbuildstate
 bin/
+out/
 #lib/
 *.dat
 *.html
@@ -329,3 +330,5 @@ cmake_install.cmake
 
 .vscode/
 CMakeSettings.json
+
+output/

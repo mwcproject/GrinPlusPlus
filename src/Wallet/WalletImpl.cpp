@@ -1,13 +1,13 @@
 #include "WalletImpl.h"
 #include "WalletRefresher.h"
 
+#include <Consensus.h>
 #include <Wallet/Keychain/KeyChain.h>
 #include <Wallet/NodeClient.h>
 #include <Common/Logger.h>
 #include <Crypto/CryptoException.h>
 #include <Crypto/Hasher.h>
 #include <Core/Exceptions/WalletException.h>
-#include <Consensus/Common.h>
 #include <unordered_set>
 
 WalletImpl::WalletImpl(
@@ -50,7 +50,7 @@ WalletSummaryDTO WalletImpl::GetWalletSummary(const SecureVector& masterSeed)
 	
 	std::vector<WalletTx> transactions = m_walletDB.Read()->GetTransactions(masterSeed);
 	return WalletSummaryDTO(
-		m_config.GetWalletConfig().GetMinimumConfirmations(),
+		m_config.GetMinimumConfirmations(),
 		balance,
 		std::move(transactions)
 	);
@@ -199,7 +199,7 @@ BuildCoinbaseResponse WalletImpl::CreateCoinbase(
 	);
 	TransactionKernel kernel(
 		EKernelFeatures::COINBASE_KERNEL,
-		0,
+		Fee(),
 		0,
 		std::move(kernelCommitment),
 		Signature(*pSignature)
