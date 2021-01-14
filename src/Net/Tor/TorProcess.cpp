@@ -43,16 +43,10 @@ void TorProcess::Thread_Initialize(TorProcess* pProcess)
 
 			auto addresses_to_add = pProcess->m_activeServices;
 			lock.unlock();
-			if (pProcess->m_pControl != nullptr) {
-				for (auto iter = addresses_to_add.cbegin(); iter != addresses_to_add.cend(); iter++)
-				{
-					auto pTorAddress = pProcess->AddListener(iter->second.first, iter->second.second);
-					if (pTorAddress != nullptr) {
-						LOG_INFO_F("Re-added onion address {}", iter->first);
-					} else {
-						LOG_INFO_F("Failed to re-add onion address {}", iter->first);
-					}
-				}
+			
+			for (auto iter = addresses_to_add.cbegin(); iter != addresses_to_add.cend(); iter++)
+			{
+				auto pTorAddress = pProcess->AddListener(iter->second.first, iter->second.second);
 			}
 		}
 		catch (const std::exception& e)
