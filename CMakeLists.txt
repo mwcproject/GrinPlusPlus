@@ -15,8 +15,6 @@ endif()
 
 project(GRIN_PLUS_PLUS)
 
-message("Grin++ Version: ${PROJECT_VERSION}")
-
 set(CMAKE_CXX_STANDARD 17)
 set_property(TARGET ${TARGET_NAME} PROPERTY CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

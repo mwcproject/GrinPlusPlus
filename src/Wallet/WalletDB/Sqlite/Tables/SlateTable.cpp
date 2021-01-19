@@ -96,7 +96,7 @@ std::unique_ptr<Slate> SlateTable::LoadSlate(
 		return nullptr;
 	}
 
-	WALLET_DEBUG_F("Slate found for id {}", uuids::to_string(slateId));
+	WALLET_TRACE_F("Slate found for id {}", uuids::to_string(slateId));
 
 	std::vector<uint8_t> iv_bytes = pStatement->GetColumnBytes(0);
 	if (iv_bytes.size() != 16) {
@@ -130,7 +130,7 @@ std::pair<std::unique_ptr<Slate>, std::string> SlateTable::LoadLatestSlate(
 	SlateStage highest_stage = ESlateStage::NONE;
 	std::pair<std::unique_ptr<Slate>, std::string> latest = { nullptr, "" };
 	while (pStatement->Step()) {
-		WALLET_DEBUG_F(
+		WALLET_TRACE_F(
 			"Slate found for id {} with stage {}",
 			uuids::to_string(slateId),
 			pStatement->GetColumnString(0)
