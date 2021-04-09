@@ -7,7 +7,7 @@
 * OPTIONAL: Visual C++ Tools for CMake
 
 **With Visual C++ Tools for CMake**
-1. Clone `https://github.com/GrinPlusPlus/GrinPlusPlus.git` to location of your choice
+1. Clone `https://github.com/mwcproject/MWCPlusPlus.git` to location of your choice
 2. Open Visual Studio
 3. File>Open>CMake...
 4. Choose CMakeLists.txt from GrinPlusPlus folder
@@ -17,8 +17,8 @@
 **Command Line**:
 1. ```Open "Developer Command Prompt for Visual Studio 2017"```
 2. ```cd C:/Choose/A/Path```
-3. ```git clone https://github.com/GrinPlusPlus/GrinPlusPlus.git```
-4. ```cd GrinPlusPlus```
+3. ```git clone https://github.com/mwcproject/MWCPlusPlus.git```
+4. ```cd MWCPlusPlus```
 5. ```mkdir build & cd build```
 6. ```cmake ..```
 7. ```cmake --build .```
@@ -31,8 +31,8 @@ Once your code is built, you can just open GrinNode.exe from your bin folder.
 * gcc 7.x.x (Tested on gcc 7.4.0)
 * uuid-dev
 
-1. ```git clone https://github.com/GrinPlusPlus/GrinPlusPlus.git```
-2. ```cd GrinPlusPlus```
+1. ```git clone https://github.com/mwcproject/MWCPlusPlus.git```
+2. ```cd MWCPlusPlus```
 3. ```mkdir build```
 4. ```cd build```
 5. ```cmake ..```
